@@ -5,3 +5,31 @@
 body {
   margin: 0;
 }
+
+.progress-bar {
+  position: absolute;
+  top: 85%;
+  left: 5%;
+  width: 90%;
+  padding: 5px;
+  background-color: transparent;
+  border: 5px solid grey;
+  border-radius: 1000000px;
+  box-shadow: 0 0 10px black;
+  z-index: 10;
+}
+
+.progress {
+  height: 2rem;
+  width: 0;
+  background-color: grey;
+  border-radius: 1000000px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 1.5rem;
+}
+
+.progress::before {
+  content: attr(data-percent);
+}

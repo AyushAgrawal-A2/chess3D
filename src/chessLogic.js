@@ -1,9 +1,10 @@
 import { MOVE_RULES, TURN_NAME } from "./chessConstants.js";
 
 // this function selects the piece at cellXY coordinate and highlights all valid moves / attacks on board for that piece
-export function select(board, turn, cellXY, history = []) {
-  deselect(board);
+export function select(board, turn, cellXY, history = [], plane3D) {
+  deselect(board, plane3D);
   const cell = getElement(board, cellXY);
+  const plane = getElement(plane3D, cellXY);
   if (!cell.color || cell.color !== TURN_NAME[turn]) return null;
   const { validMoves, validAttacks } = calculateMoves(
     board,
@@ -12,13 +13,23 @@ export function select(board, turn, cellXY, history = []) {
     history
   );
   cell.selected = true;
-  validMoves.forEach(({ x, y }) => (board[x][y].validMove = true));
-  validAttacks.forEach(({ x, y }) => (board[x][y].validAttack = true));
+  plane.visible = true;
+  plane.material.color.setRGB(0, 1, 1);
+  validMoves.forEach(({ x, y }) => {
+    board[x][y].validMove = true;
+    plane3D[x][y].visible = true;
+    plane3D[x][y].material.color.setRGB(0, 1, 1);
+  });
+  validAttacks.forEach(({ x, y }) => {
+    board[x][y].validAttack = true;
+    plane3D[x][y].visible = true;
+    plane3D[x][y].material.color.setRGB(1, 0, 0);
+  });
   return cellXY;
 }
 
 // this function clears attributes for highlighted cells
-export function deselect(board) {
+export function deselect(board, plane3D) {
   board.forEach((row) =>
     row.forEach((cell) => {
       cell.selected = false;
@@ -27,6 +38,7 @@ export function deselect(board) {
       cell.check = false;
     })
   );
+  plane3D.forEach((row) => row.forEach((plane) => (plane.visible = false)));
   return null;
 }
 
@@ -61,11 +73,7 @@ export function move(board, source, target, history = [], board3D) {
     const pawnTarget = { ...target };
     move(board, pawnSource, pawnTarget, historyItem.sideEffects, board3D);
   }
-  board[target.x][target.y] = { ...sourceElement, moved: true };
-  sourceElement.name = "";
-  sourceElement.color = "";
-  sourceElement.type = "";
-  sourceElement.moved = false;
+  move2D(board, source, target);
   move3D(board3D, source, target);
   history.push(historyItem);
   // pawn promotion - pawn has reach end, dont't change turn
@@ -75,6 +83,15 @@ export function move(board, source, target, history = [], board3D) {
   )
     return false;
   return true;
+}
+
+function move2D(board, source, target) {
+  const sourceElement = getElement(board, source);
+  board[target.x][target.y] = { ...sourceElement, moved: true };
+  sourceElement.name = "";
+  sourceElement.color = "";
+  sourceElement.type = "";
+  sourceElement.moved = false;
 }
 
 function move3D(board3D, source, target) {

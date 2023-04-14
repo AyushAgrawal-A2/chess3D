@@ -20,6 +20,8 @@ const assets = {
   BASE: {},
 };
 
+window.addEventListener("resize", onWindowResize);
+
 init();
 renderer.setAnimationLoop(animate);
 
@@ -77,8 +79,8 @@ export function getClickedPosition(event) {
     .intersectObjects(scene.children)
     .filter(
       (intersect) =>
-        intersect.object.name === "chess-board" ||
-        intersect.object.name === "board-piece"
+        intersect.object.name === "board-piece" ||
+        intersect.object.name === "chess-square"
     )[0];
   if (intersect) {
     const clickedVector = new THREE.Vector3()
@@ -106,7 +108,7 @@ function loadAssets() {
     promises.push(
       new Promise((res, rej) => {
         gltfLoader.load(
-          `../assets/${asset}.glb`,
+          `/assets/${asset}.glb`,
           (object) => {
             assets[asset] = object.scene;
             assets[asset].name =
@@ -120,9 +122,10 @@ function loadAssets() {
                 child.receiveShadow = true;
               }
             });
-            res();
+            res(increaseProgress());
           },
-          (xhr) => console.log((xhr.loaded / xhr.total) * 100 + "% loaded"),
+          // (xhr) => console.log((xhr.loaded / xhr.total) * 100 + "% loaded")
+          undefined,
           (error) => rej(error)
         );
       })
@@ -132,14 +135,15 @@ function loadAssets() {
   promises.push(
     new Promise((res, rej) => {
       rgbeLoader.load(
-        `../assets/blouberg_sunrise_2_1k.hdr`,
+        `/assets/blouberg_sunrise_2_1k.hdr`,
         (texture) => {
           texture.mapping = THREE.EquirectangularReflectionMapping;
           scene.background = texture;
           scene.environment = texture;
-          res();
+          res(increaseProgress());
         },
-        (xhr) => console.log((xhr.loaded / xhr.total) * 100 + "% loaded"),
+        //(xhr) => console.log((xhr.loaded / xhr.total) * 100 + "% loaded")
+        undefined,
         (error) => rej(error)
       );
     })
@@ -148,6 +152,7 @@ function loadAssets() {
 }
 
 export async function create3DBoard(board) {
+  displayProgressBar();
   await loadAssets();
   const base = assets.BASE.clone();
   scene.add(base);
@@ -166,5 +171,55 @@ export async function create3DBoard(board) {
     });
     board3D.push(row3D);
   });
+  removeProgressBar();
   return board3D;
+}
+
+export function create3DPlane(board) {
+  const plane3D = [];
+  board.forEach((row, x) => {
+    const row3D = [];
+    row.forEach((_, z) => {
+      const square = new THREE.Mesh(
+        new THREE.BoxGeometry(1, 0.025, 1),
+        new THREE.MeshBasicMaterial({
+          opacity: 0.35,
+          transparent: true,
+        })
+      );
+      square.name = "chess-square";
+      square.visible = false;
+      square.position.set(x - 3.5, 0, 3.5 - z);
+      scene.add(square);
+      row3D.push(square);
+    });
+    plane3D.push(row3D);
+  });
+  console.log(plane3D[0][0].material);
+  return plane3D;
+}
+
+function displayProgressBar() {
+  const progressBar = document.createElement("div");
+  progressBar.className = "progress-bar";
+  const progress = document.createElement("div");
+  progress.className = "progress";
+  progress.dataset.loaded = 0;
+  progress.dataset.total = 14;
+  progressBar.appendChild(progress);
+  document.body.appendChild(progressBar);
+}
+
+function removeProgressBar() {
+  const progressBox = document.querySelector(".progress-bar");
+  progressBox.remove();
+}
+
+function increaseProgress() {
+  const progress = document.querySelector(".progress");
+  progress.dataset.loaded++;
+  progress.dataset.percent =
+    Math.floor((progress.dataset.loaded / progress.dataset.total) * 100) + "%";
+  progress.style.width = progress.dataset.percent;
+  return progress.dataset.percent;
 }
