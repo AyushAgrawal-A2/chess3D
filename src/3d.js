@@ -20,6 +20,11 @@ const assets = {
   BASE: {},
 };
 
+const pawnOptions = [
+  ["WHITE_QUEEN", "WHITE_BISHOP", "WHITE_KNIGHT", "WHITE_ROOK"],
+  ["BLACK_QUEEN", "BLACK_BISHOP", "BLACK_KNIGHT", "BLACK_ROOK"],
+];
+
 window.addEventListener("resize", onWindowResize);
 
 init();
@@ -70,34 +75,40 @@ export function onWindowResize() {
   renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
-export function getClickedPosition(event) {
+function getIntersects(event) {
   pointer.x = (event.clientX / window.innerWidth) * 2 - 1;
   pointer.y = -(event.clientY / window.innerHeight) * 2 + 1;
   raycaster.setFromCamera(pointer, camera);
+  return raycaster.intersectObjects(scene.children);
+}
 
-  const intersect = raycaster
-    .intersectObjects(scene.children)
-    .filter(
-      (intersect) =>
-        intersect.object.name === "board-piece" ||
-        intersect.object.name === "chess-square"
-    )[0];
-  if (intersect) {
-    const clickedVector = new THREE.Vector3()
-      .copy(intersect.point)
-      .floor()
-      .addScalar(0.5);
-    if (
-      clickedVector.x <= 3.5 &&
-      clickedVector.x >= -3.5 &&
-      clickedVector.z <= 3.5 &&
-      clickedVector.z >= -3.5
-    )
-      return {
-        x: clickedVector.x + 3.5,
-        y: 3.5 - clickedVector.z,
-      };
-  }
+export function getClickedPosition(event) {
+  const intersect = getIntersects(event).filter(
+    (intersect) =>
+      intersect.object.name.includes("WHITE_") ||
+      intersect.object.name.includes("BLACK_") ||
+      intersect.object.name === "chess-square"
+  )[0];
+  if (!intersect) return null;
+  const clickedVector = new THREE.Vector3()
+    .copy(intersect.point)
+    .floor()
+    .addScalar(0.5);
+
+  return {
+    x: clickedVector.x + 3.5,
+    y: 3.5 - clickedVector.z,
+  };
+}
+
+export function getClickedModalName(event) {
+  const intersect = getIntersects(event).filter(
+    (intersect) =>
+      intersect.point.y >= 2 &&
+      (intersect.object.name.includes("WHITE_") ||
+        intersect.object.name.includes("BLACK_"))
+  )[0];
+  if (intersect) return intersect.object.name;
   return null;
 }
 
@@ -111,10 +122,9 @@ function loadAssets() {
           `/assets/${asset}.glb`,
           (object) => {
             assets[asset] = object.scene;
-            assets[asset].name =
-              asset === "BASE" ? "chess-board" : "board-piece";
+            assets[asset].name = asset === "BASE" ? "chess-board" : asset;
             assets[asset].traverse((child) => {
-              child.name = asset === "BASE" ? "chess-board" : "board-piece";
+              child.name = asset === "BASE" ? "chess-board" : asset;
               if (child.isMesh) {
                 child.material.roughness = 0;
                 child.material.metalness = 0.25;
@@ -154,8 +164,12 @@ function loadAssets() {
 export async function create3DBoard(board) {
   displayProgressBar();
   await loadAssets();
+
+  // load & render base
   const base = assets.BASE.clone();
   scene.add(base);
+
+  // load & render pieces
   const board3D = [];
   board.forEach((row, x) => {
     const row3D = [];
@@ -195,7 +209,6 @@ export function create3DPlane(board) {
     });
     plane3D.push(row3D);
   });
-  console.log(plane3D[0][0].material);
   return plane3D;
 }
 
@@ -222,4 +235,59 @@ function increaseProgress() {
     Math.floor((progress.dataset.loaded / progress.dataset.total) * 100) + "%";
   progress.style.width = progress.dataset.percent;
   return progress.dataset.percent;
+}
+
+export function displayModal(turn) {
+  let posZ = 1.5;
+  pawnOptions[turn].forEach((option) => {
+    assets[option].position.set(turn == 0 ? -3.5 : 3.5, 2, posZ--);
+    scene.add(assets[option]);
+  });
+}
+
+export function removeModal(turn) {
+  pawnOptions[turn].forEach((option) => {
+    assets[option].position.set(0, 0, 0);
+    scene.remove(assets[option]);
+  });
+}
+
+export function select3D(plane3D, cellXY, validMoves, validAttacks) {
+  const plane = getElement(plane3D, cellXY);
+  plane.visible = true;
+  plane.material.color.setRGB(0, 1, 1);
+  validMoves.forEach(({ x, y }) => {
+    plane3D[x][y].visible = true;
+    plane3D[x][y].material.color.setRGB(0, 1, 1);
+  });
+  validAttacks.forEach(({ x, y }) => {
+    plane3D[x][y].visible = true;
+    plane3D[x][y].material.color.setRGB(1, 0, 0);
+  });
+}
+
+export function deselect3D(plane3D) {
+  plane3D.forEach((row) => row.forEach((plane) => (plane.visible = false)));
+}
+
+export function move3D(board3D, source, target) {
+  if (!board3D) return;
+  const source3DElement = getElement(board3D, source);
+  board3D[source.x][source.y] = null;
+  const target3DElement = getElement(board3D, target);
+  board3D[target.x][target.y] = source3DElement;
+  source3DElement.position.set(target.x - 3.5, 0, 3.5 - target.y);
+  if (target3DElement) target3DElement.visible = false;
+}
+
+export function promotePawn3D(board3D, { x, y }, name) {
+  scene.remove(board3D[x][y]);
+  const piece = assets[name].clone();
+  piece.position.set(x - 3.5, 0, 3.5 - y);
+  board3D[x][y] = piece;
+  scene.add(piece);
+}
+
+function getElement(board, { x, y }) {
+  return board[x][y];
 }

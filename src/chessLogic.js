@@ -1,10 +1,10 @@
 import { MOVE_RULES, TURN_NAME } from "./chessConstants.js";
+import { select3D, deselect3D, move3D } from "./3d.js";
 
 // this function selects the piece at cellXY coordinate and highlights all valid moves / attacks on board for that piece
 export function select(board, turn, cellXY, history = [], plane3D) {
   deselect(board, plane3D);
   const cell = getElement(board, cellXY);
-  const plane = getElement(plane3D, cellXY);
   if (!cell.color || cell.color !== TURN_NAME[turn]) return null;
   const { validMoves, validAttacks } = calculateMoves(
     board,
@@ -12,24 +12,26 @@ export function select(board, turn, cellXY, history = [], plane3D) {
     cellXY,
     history
   );
-  cell.selected = true;
-  plane.visible = true;
-  plane.material.color.setRGB(0, 1, 1);
-  validMoves.forEach(({ x, y }) => {
-    board[x][y].validMove = true;
-    plane3D[x][y].visible = true;
-    plane3D[x][y].material.color.setRGB(0, 1, 1);
-  });
-  validAttacks.forEach(({ x, y }) => {
-    board[x][y].validAttack = true;
-    plane3D[x][y].visible = true;
-    plane3D[x][y].material.color.setRGB(1, 0, 0);
-  });
+  select2D(board, cellXY, validMoves, validAttacks);
+  select3D(plane3D, cellXY, validMoves, validAttacks);
   return cellXY;
+}
+
+function select2D(board, cellXY, validMoves, validAttacks) {
+  const cell = getElement(board, cellXY);
+  cell.selected = true;
+  validMoves.forEach(({ x, y }) => (board[x][y].validMove = true));
+  validAttacks.forEach(({ x, y }) => (board[x][y].validAttack = true));
 }
 
 // this function clears attributes for highlighted cells
 export function deselect(board, plane3D) {
+  deselect2D(board);
+  deselect3D(plane3D);
+  return null;
+}
+
+function deselect2D(board) {
   board.forEach((row) =>
     row.forEach((cell) => {
       cell.selected = false;
@@ -38,30 +40,34 @@ export function deselect(board, plane3D) {
       cell.check = false;
     })
   );
-  plane3D.forEach((row) => row.forEach((plane) => (plane.visible = false)));
-  return null;
 }
 
 // this function moves the piece from source to target
-export function move(board, source, target, history = [], board3D) {
+export function move(board, source, target, history, board3D) {
   const sourceElement = getElement(board, source);
   const targetElement = getElement(board, target);
   // record the move as history item for undo function
-  // castling and en-passent have side effects where more than 2 cell are effected, these are saved separately
-  const historyItem = {
-    source,
-    sourceElement: { ...sourceElement },
-    target,
-    targetElement: { ...targetElement },
-    attack: targetElement.validAttack,
-    sideEffects: [],
-  };
+  // castling and en-passent have side effects where more than 2 cell are effected, these are saved separately in sideEffects array
+  let historyItem;
+  if (history) {
+    historyItem = {
+      source,
+      sourceElement: { ...sourceElement },
+      target,
+      targetElement: { ...targetElement },
+      attack: targetElement.validAttack,
+      sideEffects: [],
+    };
+    history.push(historyItem);
+  }
+
   // castling move, rook also has to be moved
   if (sourceElement.type === "KING" && Math.abs(source.y - target.y) === 2) {
     const rookSource = { x: source.x, y: target.y === 2 ? 0 : 7 };
     const rookTarget = { x: source.x, y: target.y === 2 ? 3 : 5 };
-    move(board, rookSource, rookTarget, historyItem.sideEffects, board3D);
+    move(board, rookSource, rookTarget, historyItem?.sideEffects, board3D);
   }
+
   // en-passant, moving pawn back and then capturing it
   if (
     sourceElement.type === "PAWN" &&
@@ -71,11 +77,11 @@ export function move(board, source, target, history = [], board3D) {
   ) {
     const pawnSource = { x: source.x, y: target.y };
     const pawnTarget = { ...target };
-    move(board, pawnSource, pawnTarget, historyItem.sideEffects, board3D);
+    move(board, pawnSource, pawnTarget, historyItem?.sideEffects, board3D);
   }
   move2D(board, source, target);
   move3D(board3D, source, target);
-  history.push(historyItem);
+
   // pawn promotion - pawn has reach end, dont't change turn
   if (
     board[target.x][target.y].type === "PAWN" &&
@@ -94,27 +100,10 @@ function move2D(board, source, target) {
   sourceElement.moved = false;
 }
 
-function move3D(board3D, source, target) {
-  if (!board3D) return;
-  const source3DElement = getElement(board3D, source);
-  board3D[source.x][source.y] = null;
-  const target3DElement = getElement(board3D, target);
-  board3D[target.x][target.y] = source3DElement;
-  source3DElement.position.set(target.x - 3.5, 0, 3.5 - target.y);
-  if (target3DElement) target3DElement.visible = false;
-}
-
-export function promotePawn(board, name) {
-  board.find((row, x) => {
-    if (x !== 0 && x !== 7) return false;
-    return row.find((cell) => {
-      if (cell.type === "PAWN") {
-        cell.name = name;
-        [cell.color, cell.type] = name.split("_");
-        return true;
-      }
-    });
-  });
+export function promotePawn2D(board, cellXY, name) {
+  const cell = getElement(board, cellXY);
+  cell.name = name;
+  [cell.color, cell.type] = name.split("_");
 }
 
 export function undoMove(board, prevMove) {
@@ -127,7 +116,7 @@ export function undoMove(board, prevMove) {
 }
 
 // this function calculates all valid moves / attacks from a piece at cellXY coordinate
-export function calculateMoves(board, turn, cellXY, history = []) {
+function calculateMoves(board, turn, cellXY, history = []) {
   const validMoves = [],
     validAttacks = [];
   const cell = getElement(board, cellXY);

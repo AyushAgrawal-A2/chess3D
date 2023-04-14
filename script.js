@@ -1,10 +1,14 @@
-import { create3DBoard, create3DPlane, getClickedPosition } from "./src/3d.js";
-
 import {
-  DEFAULT_BOARD,
-  TURN_NAME,
-  PAWN_PROMOTION,
-} from "./src/chessConstants.js";
+  create3DBoard,
+  create3DPlane,
+  getClickedPosition,
+  getClickedModalName,
+  displayModal,
+  removeModal,
+  promotePawn3D,
+} from "./src/3d.js";
+
+import { DEFAULT_BOARD, TURN_NAME } from "./src/chessConstants.js";
 
 import {
   select,
@@ -14,7 +18,7 @@ import {
   canPlayerMove,
   getKing,
   undoMove,
-  promotePawn,
+  promotePawn2D,
 } from "./src/chessLogic.js";
 
 let board,
@@ -34,13 +38,17 @@ window.addEventListener("click", onClick);
 resetGame();
 
 function onClick(event) {
-  const cellXY = getClickedPosition(event);
-  if (cellXY) handleBoardClick(board3D, cellXY);
+  if (waitForPromotion) {
+    const name = getClickedModalName(event);
+    promotePawn(board, name, board3D);
+  } else {
+    const cellXY = getClickedPosition(event);
+    handleBoardClick(board3D, cellXY);
+  }
 }
 
 function handleBoardClick(board3D, cellXY) {
-  // if pawn need to be promoted
-  // if(waitForPromotion)
+  if (!cellXY) return;
 
   // if no piece is selected, select this piece and highlight valid moves / attacks
   if (!selected) selected = select(board, turn, cellXY, history, plane3D);
@@ -60,12 +68,12 @@ function handleBoardClick(board3D, cellXY) {
       }
       // if move is complete change turn, else pawn needs to be promoted
       if (move(board, selected, cellXY, history, board3D)) {
-        turn ^= 1;
-        selected = deselect(board, plane3D);
+        changeTurn();
         // displayGameStatus();
       }
       // change pawn promotion flag and display modal
       else {
+        displayModal(turn);
         waitForPromotion = true;
         selected = select(board, turn, cellXY, history, plane3D);
       }
@@ -98,4 +106,18 @@ async function resetGame() {
   captured = [[], []];
   selected = null;
   history = [];
+}
+
+function promotePawn(board, name, board3D) {
+  if (!name) return;
+  promotePawn2D(board, selected, name);
+  promotePawn3D(board3D, selected, name);
+  removeModal(turn);
+  waitForPromotion = false;
+  changeTurn();
+}
+
+function changeTurn() {
+  turn ^= 1;
+  selected = deselect(board, plane3D);
 }
