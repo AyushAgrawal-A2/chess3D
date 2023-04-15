@@ -12,6 +12,7 @@
     "vite": "^4.2.0"
   },
   "dependencies": {
+    "@ibrahimdeniz/chess-js": "^0.1.2",
     "three": "^0.151.3"
   }
 }

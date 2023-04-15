@@ -135,13 +135,13 @@ function calculateMoves(board, turn, cellXY, history = []) {
       if (invalidCell(nextX, nextY)) break;
       const nextColor = board[nextX][nextY].color;
       if (nextColor === cell.color) break;
-      if (!checkKing(board, turn, cellXY, { x: nextX, y: nextY })) continue;
+      const kingSafe = checkKing(board, turn, cellXY, { x: nextX, y: nextY });
       if (!nextColor) {
-        validMoves.push({ x: nextX, y: nextY });
+        if (kingSafe) validMoves.push({ x: nextX, y: nextY });
         continue;
       }
       if (cell.color !== nextColor) {
-        validAttacks.push({ x: nextX, y: nextY });
+        if (kingSafe) validAttacks.push({ x: nextX, y: nextY });
         break;
       }
     }
@@ -205,6 +205,20 @@ function checkCastling(board, turn, kingXY, validMoves, dir) {
   if (!checkKing(board, turn, kingXY, rookTargetXY)) return;
   if (!checkKing(board, turn, kingXY, kingTargetXY)) return;
   validMoves.push(kingTargetXY);
+}
+
+export function castlingRight(board, turn, dir) {
+  // check king has not moved
+  const kingXY = getKing(board, turn);
+  const king = getElement(board, kingXY);
+  if (king.moved) return false;
+
+  // check rook has not moved
+  const rookXY = { x: kingXY.x, y: kingXY.y + (dir === 1 ? 3 : -4) };
+  const rook = getElement(board, rookXY);
+  if (rook.type !== "ROOK" || rook.moved) return false;
+
+  return true;
 }
 
 // this function checks if the current king is safe after any piece moves from source to target

@@ -46,22 +46,6 @@ export const DEFAULT_BOARD = [
   ],
 ];
 
-// utf codes for each piece
-export const UTF_CODES = {
-  WHITE_KING: "\u2654",
-  WHITE_QUEEN: "\u2655",
-  WHITE_ROOK: "\u2656",
-  WHITE_BISHOP: "\u2657",
-  WHITE_KNIGHT: "\u2658",
-  WHITE_PAWN: "\u2659",
-  BLACK_KING: "\u265A",
-  BLACK_QUEEN: "\u265B",
-  BLACK_ROOK: "\u265C",
-  BLACK_BISHOP: "\u265D",
-  BLACK_KNIGHT: "\u265E",
-  BLACK_PAWN: "\u265F",
-};
-
 // piece wise movement / attack rules
 export const MOVE_RULES = {
   KING: {
@@ -132,6 +116,3 @@ export const MOVE_RULES = {
 };
 
 export const TURN_NAME = ["WHITE", "BLACK"];
-
-// options for pawn promotion
-export const PAWN_PROMOTION = ["ROOK", "KNIGHT", "BISHOP", "QUEEN"];

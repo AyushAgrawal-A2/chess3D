@@ -1,3 +1,4 @@
+import { PIECE, getMove, parseLocation } from "./src/botLogic.js";
 import {
   create3DBoard,
   create3DPlane,
@@ -23,6 +24,7 @@ import {
 
 let board,
   turn,
+  bot,
   captured,
   selected,
   history,
@@ -43,11 +45,13 @@ function onClick(event) {
     promotePawn(board, name, board3D);
   } else {
     const cellXY = getClickedPosition(event);
-    handleBoardClick(board3D, cellXY);
+    handleBoardClick(cellXY);
   }
 }
 
-function handleBoardClick(board3D, cellXY) {
+function handleBoardClick(cellXY) {
+  if (turn === bot) return;
+
   if (!cellXY) return;
 
   // if no piece is selected, select this piece and highlight valid moves / attacks
@@ -61,27 +65,49 @@ function handleBoardClick(board3D, cellXY) {
     }
     // if a valid move / attack is selected make the move
     else if (cell.validMove || cell.validAttack) {
-      if (cell.validAttack) {
-        captured[turn].push(
-          cell.name !== "" ? cell.name : TURN_NAME[turn ^ 1] + "_PAWN"
-        );
-      }
-      // if move is complete change turn, else pawn needs to be promoted
-      if (move(board, selected, cellXY, history, board3D)) {
-        changeTurn();
-        // displayGameStatus();
-      }
-      // change pawn promotion flag and display modal
-      else {
-        displayModal(turn);
-        waitForPromotion = true;
-        selected = select(board, turn, cellXY, history, plane3D);
-      }
+      initiateMove(cellXY);
     }
     // if any other piece is clicked, select this piece
     else selected = select(board, turn, cellXY, history, plane3D);
   }
-  // displayBoard();
+  displayGameStatus();
+}
+
+function initiateMove(target) {
+  const targetElement = board[target.x][target.y];
+  if (targetElement.validAttack) {
+    captured[turn].push(
+      targetElement.name !== ""
+        ? targetElement.name
+        : TURN_NAME[turn ^ 1] + "_PAWN"
+    );
+  }
+
+  // if move is complete change turn, else pawn needs to be promoted
+  if (move(board, selected, target, history, board3D)) {
+    changeTurn();
+    calculateGameStatus();
+  }
+  // change pawn promotion flag and display modal
+  else {
+    displayModal(turn);
+    waitForPromotion = true;
+    selected = select(board, turn, target, history, plane3D);
+  }
+}
+
+function botMove() {
+  if (turn !== bot) return;
+  const nextMove = getMove(board, turn, history);
+  const source = parseLocation(nextMove.from);
+  selected = select(board, turn, source, history, plane3D);
+  const target = parseLocation(nextMove.to);
+  initiateMove(target);
+  if (nextMove.promotion) {
+    const name = TURN_NAME[turn] + "_" + PIECE[nextMove.promotion];
+    promotePawn(board, name, board3D);
+  }
+  displayGameStatus();
 }
 
 async function resetGame() {
@@ -102,10 +128,13 @@ async function resetGame() {
   plane3D = create3DPlane(board);
 
   turn = 0; // white will move first
+  bot = Math.floor(Math.random() * 2);
   waitForPromotion = false;
   captured = [[], []];
   selected = null;
   history = [];
+  calculateGameStatus();
+  displayGameStatus();
 }
 
 function promotePawn(board, name, board3D) {
@@ -115,9 +144,36 @@ function promotePawn(board, name, board3D) {
   removeModal(turn);
   waitForPromotion = false;
   changeTurn();
+  calculateGameStatus();
+}
+
+function calculateGameStatus() {
+  check = !checkKing(board, turn, { x: 0, y: 0 }, { x: 0, y: 0 });
+  canMove = canPlayerMove(board, turn, history);
+
+  if (turn) gameStatus = "Black's Turn";
+  else gameStatus = "White's Turn";
+
+  // if king is in check, add in status
+  if (check && canMove) gameStatus += " - Check";
+  // if king is in check and there are no moves left, other player won
+  else if (check && !canMove)
+    gameStatus = turn === 0 ? "Black Won..!!" : "White Won..!!";
+  // if king is not in check and no moves left, stale mate / draw
+  else if (!check && !canMove) gameStatus = "Draw..!!";
 }
 
 function changeTurn() {
   turn ^= 1;
   selected = deselect(board, plane3D);
+}
+
+function displayGameStatus() {
+  if (check) {
+    const { x, y } = getKing(board, turn);
+    plane3D[x][y].visible = true;
+    plane3D[x][y].material.color.setRGB(1, 0, 0);
+  }
+  console.log(gameStatus);
+  botMove();
 }
