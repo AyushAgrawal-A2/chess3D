@@ -35,14 +35,17 @@ let board,
 
 let board3D, plane3D;
 
+const audioElements = document.querySelectorAll("audio");
+
 window.addEventListener("click", onClick);
 
 resetGame();
 
+// user interactions
 function onClick(event) {
   if (waitForPromotion) {
     const name = getClickedModalName(event);
-    promotePawn(board, name, board3D);
+    promotePawn(name);
   } else {
     const cellXY = getClickedPosition(event);
     handleBoardClick(cellXY);
@@ -65,7 +68,7 @@ function handleBoardClick(cellXY) {
     }
     // if a valid move / attack is selected make the move
     else if (cell.validMove || cell.validAttack) {
-      initiateMove(cellXY);
+      executeMove(cellXY);
     }
     // if any other piece is clicked, select this piece
     else selected = select(board, turn, cellXY, history, plane3D);
@@ -73,7 +76,7 @@ function handleBoardClick(cellXY) {
   displayGameStatus();
 }
 
-function initiateMove(target) {
+function executeMove(target) {
   const targetElement = board[target.x][target.y];
   if (targetElement.validAttack) {
     captured[turn].push(
@@ -81,12 +84,14 @@ function initiateMove(target) {
         ? targetElement.name
         : TURN_NAME[turn ^ 1] + "_PAWN"
     );
+    audioElements[1].play();
   }
 
   // if move is complete change turn, else pawn needs to be promoted
   if (move(board, selected, target, history, board3D)) {
     changeTurn();
     calculateGameStatus();
+    if (!targetElement.validAttack) audioElements[0].play();
   }
   // change pawn promotion flag and display modal
   else {
@@ -96,16 +101,17 @@ function initiateMove(target) {
   }
 }
 
+// bot simulated interactions
 function botMove() {
   if (turn !== bot) return;
   const nextMove = getMove(board, turn, history);
   const source = parseLocation(nextMove.from);
   selected = select(board, turn, source, history, plane3D);
   const target = parseLocation(nextMove.to);
-  initiateMove(target);
+  executeMove(target);
   if (nextMove.promotion) {
     const name = TURN_NAME[turn] + "_" + PIECE[nextMove.promotion];
-    promotePawn(board, name, board3D);
+    promotePawn(name);
   }
   displayGameStatus();
 }
@@ -137,13 +143,14 @@ async function resetGame() {
   displayGameStatus();
 }
 
-function promotePawn(board, name, board3D) {
+function promotePawn(name) {
   if (!name) return;
   promotePawn2D(board, selected, name);
   promotePawn3D(board3D, selected, name);
   removeModal(turn);
   waitForPromotion = false;
   changeTurn();
+  audioElements[0].play();
   calculateGameStatus();
 }
 
@@ -157,10 +164,15 @@ function calculateGameStatus() {
   // if king is in check, add in status
   if (check && canMove) gameStatus += " - Check";
   // if king is in check and there are no moves left, other player won
-  else if (check && !canMove)
+  else if (check && !canMove) {
     gameStatus = turn === 0 ? "Black Won..!!" : "White Won..!!";
+    audioElements[2].play();
+  }
   // if king is not in check and no moves left, stale mate / draw
-  else if (!check && !canMove) gameStatus = "Draw..!!";
+  else if (!check && !canMove) {
+    gameStatus = "Draw..!!";
+    audioElements[2].play();
+  }
 }
 
 function changeTurn() {
@@ -175,5 +187,5 @@ function displayGameStatus() {
     plane3D[x][y].material.color.setRGB(1, 0, 0);
   }
   console.log(gameStatus);
-  botMove();
+  setTimeout(() => botMove(), 1000);
 }

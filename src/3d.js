@@ -119,7 +119,7 @@ function loadAssets() {
     promises.push(
       new Promise((res, rej) => {
         gltfLoader.load(
-          `/assets/${asset}.glb`,
+          `/assets/3dModel/${asset}.glb`,
           (object) => {
             assets[asset] = object.scene;
             assets[asset].name = asset === "BASE" ? "chess-board" : asset;
@@ -145,7 +145,7 @@ function loadAssets() {
   promises.push(
     new Promise((res, rej) => {
       rgbeLoader.load(
-        `/assets/blouberg_sunrise_2_1k.hdr`,
+        `/assets/3dModel/blouberg_sunrise_2_1k.hdr`,
         (texture) => {
           texture.mapping = THREE.EquirectangularReflectionMapping;
           scene.background = texture;

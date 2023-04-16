@@ -14,7 +14,7 @@ const ai = new ChessAI();
 
 export function getMove(board, turn, history) {
   const fen = generateFEN(board, turn, history);
-  const nextMove = ai.selectMove(fen, { depth: 1 });
+  const nextMove = ai.selectMove(fen, { depth: 3 });
   return nextMove;
 }
 
