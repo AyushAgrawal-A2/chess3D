@@ -7,6 +7,35 @@ body {
   background-color: black;
 }
 
+.game-header {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 5px;
+  background-color: grey;
+  border: 1px solid white;
+  border-radius: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: "Montserrat",
+    sans-serif;
+  font-weight: 600;
+  width: max-content;
+}
+
+.game-status {
+  padding: 16px;
+  flex-grow: 1;
+}
+
+img {
+  padding: 0.25rem 0.25rem;
+  border-radius: 0.5rem;
+  height: 2.5rem;
+  margin-right: 5px;
+}
+
 .progress-bar {
   position: absolute;
   top: 85%;

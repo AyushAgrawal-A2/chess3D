@@ -1,5 +1,5 @@
 import { MOVE_RULES, TURN_NAME } from "./chessConstants.js";
-import { select3D, deselect3D, move3D } from "./3d.js";
+import { select3D, deselect3D, move3D, undo3D } from "./3d.js";
 
 // this function selects the piece at cellXY coordinate and highlights all valid moves / attacks on board for that piece
 export function select(board, turn, cellXY, history = [], plane3D) {
@@ -46,6 +46,11 @@ function deselect2D(board) {
 export function move(board, source, target, history, board3D) {
   const sourceElement = getElement(board, source);
   const targetElement = getElement(board, target);
+  let source3DElement, target3DElement;
+  if (board3D) {
+    source3DElement = getElement(board3D, source);
+    target3DElement = getElement(board3D, target);
+  }
   // record the move as history item for undo function
   // castling and en-passent have side effects where more than 2 cell are effected, these are saved separately in sideEffects array
   let historyItem;
@@ -53,8 +58,10 @@ export function move(board, source, target, history, board3D) {
     historyItem = {
       source,
       sourceElement: { ...sourceElement },
+      source3DElement,
       target,
       targetElement: { ...targetElement },
+      target3DElement,
       attack: targetElement.validAttack,
       sideEffects: [],
     };
@@ -106,13 +113,10 @@ export function promotePawn2D(board, cellXY, name) {
   [cell.color, cell.type] = name.split("_");
 }
 
-export function undoMove(board, prevMove) {
-  const { source, sourceElement, target, targetElement, sideEffects } =
-    prevMove;
-  if (sideEffects.length > 0)
-    for (const sideEffect of sideEffects) undoMove(board, sideEffect);
-  board[source.x][source.y] = { ...sourceElement };
+export function undo2D(prevMove, board) {
+  const { source, sourceElement, target, targetElement } = prevMove;
   board[target.x][target.y] = { ...targetElement };
+  board[source.x][source.y] = { ...sourceElement };
 }
 
 // this function calculates all valid moves / attacks from a piece at cellXY coordinate

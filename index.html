@@ -7,10 +7,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Chess 3D</title>
   <link rel="stylesheet" href="style.css" />
-  <script src="/script.js" type="module" defer></script>
+  <script src="/src/script.js" type="module" defer></script>
 </head>
 
 <body>
+  <div class="game-header">
+    <div class="game-status"></div>
+    <div class="game-controls">
+      <img class="undo" src="/assets/image/undo.png" alt="undo move">
+      <img class="reset" src="/assets/image/reset.png" alt="reset">
+    </div>
+  </div>
   <audio class="move-audio" src="/assets/sound/move.mp3"></audio>
   <audio class="capture-audio" src="/assets/sound/capture.mp3"></audio>
   <audio class="gamOver-audio" src="/assets/sound/gameOver.mp3"></audio>

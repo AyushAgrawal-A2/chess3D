@@ -1,4 +1,4 @@
-import { PIECE, getMove, parseLocation } from "./src/botLogic.js";
+import { PIECE, getMove, parseLocation } from "./botLogic.js";
 import {
   create3DBoard,
   create3DPlane,
@@ -7,9 +7,12 @@ import {
   displayModal,
   removeModal,
   promotePawn3D,
-} from "./src/3d.js";
+  orientBoard,
+  clearScene,
+  undo3D,
+} from "./3d.js";
 
-import { DEFAULT_BOARD, TURN_NAME } from "./src/chessConstants.js";
+import { DEFAULT_BOARD, TURN_NAME } from "./chessConstants.js";
 
 import {
   select,
@@ -18,9 +21,9 @@ import {
   checkKing,
   canPlayerMove,
   getKing,
-  undoMove,
   promotePawn2D,
-} from "./src/chessLogic.js";
+  undo2D,
+} from "./chessLogic.js";
 
 let board,
   turn,
@@ -28,22 +31,34 @@ let board,
   captured,
   selected,
   history,
+  flip,
   check,
   canMove,
   gameStatus,
-  waitForPromotion;
+  waitForPromotion,
+  start,
+  timeoutID;
 
 let board3D, plane3D;
 
+const gameStatusElement = document.querySelector(".game-status");
 const audioElements = document.querySelectorAll("audio");
 
 window.addEventListener("click", onClick);
 
 resetGame();
 
+function startGame() {
+  start = true;
+  displayGameStatus();
+}
+
 // user interactions
 function onClick(event) {
-  if (waitForPromotion) {
+  if (!start) startGame();
+  else if (event.target.classList.contains("undo")) undo();
+  else if (event.target.classList.contains("reset")) resetGame();
+  else if (waitForPromotion) {
     const name = getClickedModalName(event);
     promotePawn(name);
   } else {
@@ -90,7 +105,6 @@ function executeMove(target) {
   // if move is complete change turn, else pawn needs to be promoted
   if (move(board, selected, target, history, board3D)) {
     changeTurn();
-    calculateGameStatus();
     if (!targetElement.validAttack) audioElements[0].play();
   }
   // change pawn promotion flag and display modal
@@ -117,6 +131,8 @@ function botMove() {
 }
 
 async function resetGame() {
+  clearScene(board3D, plane3D);
+
   // make a new board from DEFAULT_BOARD
   board = DEFAULT_BOARD.map((row) =>
     row.map((cell) => ({
@@ -132,15 +148,35 @@ async function resetGame() {
 
   board3D = await create3DBoard(board);
   plane3D = create3DPlane(board);
-
   turn = 0; // white will move first
   bot = Math.floor(Math.random() * 2);
+  flip = bot == 0; // orient the board as per the turn
   waitForPromotion = false;
   captured = [[], []];
   selected = null;
   history = [];
-  calculateGameStatus();
+  start = false;
+  gameStatus = "Click to start...";
+  orientBoard(flip);
   displayGameStatus();
+}
+
+function undo() {
+  if (history.length === 0) return;
+  const prevMove = history.pop();
+  turn = prevMove.sourceElement.color === "WHITE" ? 0 : 1;
+  waitForPromotion = false;
+  if (prevMove.attack) captured[turn].pop();
+  undoMove(prevMove);
+  selected = deselect(board, plane3D);
+  displayGameStatus();
+}
+
+function undoMove(prevMove) {
+  const { sideEffects } = prevMove;
+  for (const sideEffect of sideEffects) undoMove(sideEffect, board, board3D);
+  undo2D(prevMove, board);
+  undo3D(prevMove, board3D);
 }
 
 function promotePawn(name) {
@@ -151,7 +187,7 @@ function promotePawn(name) {
   waitForPromotion = false;
   changeTurn();
   audioElements[0].play();
-  calculateGameStatus();
+  displayGameStatus();
 }
 
 function calculateGameStatus() {
@@ -181,11 +217,15 @@ function changeTurn() {
 }
 
 function displayGameStatus() {
-  if (check) {
-    const { x, y } = getKing(board, turn);
-    plane3D[x][y].visible = true;
-    plane3D[x][y].material.color.setRGB(1, 0, 0);
+  if (start) {
+    calculateGameStatus();
+    if (check) {
+      const { x, y } = getKing(board, turn);
+      plane3D[x][y].visible = true;
+      plane3D[x][y].material.color.setRGB(1, 0, 0);
+    }
+    clearTimeout(timeoutID);
+    timeoutID = setTimeout(() => botMove(), 1000);
   }
-  console.log(gameStatus);
-  setTimeout(() => botMove(), 1000);
+  gameStatusElement.textContent = gameStatus;
 }

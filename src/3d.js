@@ -3,7 +3,14 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { RGBELoader } from "three/addons/loaders/RGBELoader.js";
 
-let scene, camera, renderer, raycaster, pointer, orbitControls;
+let scene,
+  camera,
+  renderer,
+  raycaster,
+  pointer,
+  orbitControls,
+  assetsLoaded = false;
+
 const assets = {
   BLACK_KING: {},
   BLACK_QUEEN: {},
@@ -62,6 +69,11 @@ function init() {
   // for pointer tracking
   raycaster = new THREE.Raycaster();
   pointer = new THREE.Vector2();
+}
+
+export function orientBoard(flip) {
+  if (flip) camera.position.set(-10, 15, 0);
+  else camera.position.set(10, 15, 0);
 }
 
 function animate() {
@@ -163,7 +175,11 @@ function loadAssets() {
 
 export async function create3DBoard(board) {
   displayProgressBar();
-  await loadAssets();
+
+  if (!assetsLoaded) {
+    await loadAssets();
+    assetsLoaded = true;
+  }
 
   // load & render base
   const base = assets.BASE.clone();
@@ -210,6 +226,13 @@ export function create3DPlane(board) {
     plane3D.push(row3D);
   });
   return plane3D;
+}
+
+export function clearScene(board3D, plane3D) {
+  if (board3D)
+    board3D.forEach((row) => row.forEach((cell) => scene.remove(cell)));
+  if (plane3D)
+    plane3D.forEach((row) => row.forEach((cell) => scene.remove(cell)));
 }
 
 function displayProgressBar() {
@@ -277,7 +300,18 @@ export function move3D(board3D, source, target) {
   const target3DElement = getElement(board3D, target);
   board3D[target.x][target.y] = source3DElement;
   source3DElement.position.set(target.x - 3.5, 0, 3.5 - target.y);
-  if (target3DElement) target3DElement.visible = false;
+  if (target3DElement) scene.remove(target3DElement);
+}
+
+export function undo3D(prevMove, board3D) {
+  const { source, source3DElement, target, target3DElement } = prevMove;
+  if (getElement(board3D, source)) scene.remove(getElement(board3D, source));
+  if (getElement(board3D, target)) scene.remove(getElement(board3D, target));
+  board3D[source.x][source.y] = source3DElement;
+  source3DElement.position.set(source.x - 3.5, 0, 3.5 - source.y);
+  scene.add(source3DElement);
+  board3D[target.x][target.y] = target3DElement;
+  if (target3DElement) scene.add(target3DElement);
 }
 
 export function promotePawn3D(board3D, { x, y }, name) {
